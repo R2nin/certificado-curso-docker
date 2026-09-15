@@ -1,0 +1,12 @@
+node_modules
+artifacts
+cache
+.env
+dados-locais.json
+*.md
+frontend
+backend
+db
+test
+dados-locais.json
+.git

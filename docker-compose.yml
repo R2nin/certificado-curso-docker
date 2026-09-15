@@ -1,0 +1,90 @@
+# =============================================================================
+# CertificadoCurso v2 — versão conteinerizada
+# 4 serviços: frontend (nginx) + backend (Express) + db (PostgreSQL) + blockchain (Hardhat)
+#
+# Conceitos demonstrados:
+#   - Compose como arquivo central da arquitetura
+#   - Rede virtual: serviços se enxergam pelo NOME (db, blockchain, backend)
+#   - Volumes: pgdata (persistência do banco) e chain-shared (endereço/ABI do contrato)
+#   - Variáveis de ambiente: nenhuma credencial hardcoded no código
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------- FRONTEND
+  # Página estática servida pelo nginx. O nginx também faz proxy de /api/
+  # para o backend — o navegador só fala com o frontend (evita CORS e
+  # demonstra a comunicação entre contêineres pela rede do Compose).
+  frontend:
+    build: ./frontend
+    container_name: certificado-frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"      # única porta exposta ao host
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------- BACKEND
+  # API Express que atua como RELAYER: recebe requisições HTTP, guarda os
+  # dados pessoais no PostgreSQL (LGPD: off-chain) e envia transações ao
+  # contrato no nó blockchain. Conecta-se aos outros serviços pelo nome.
+  backend:
+    build: ./backend
+    container_name: certificado-backend
+    environment:
+      PORT: 3000
+      # Banco: host = nome do serviço "db" na rede do Compose
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Blockchain: host = nome do serviço "blockchain"
+      RPC_URL: http://blockchain:8545
+      # Chave do professor/relayer (conta #0 do nó Hardhat — APENAS dev local)
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      # Sal do ID anônimo: keccak256(SAL + ":" + RA)
+      SAL_ALUNOS: ${SAL_ALUNOS}
+      # Onde o serviço blockchain publica endereço + ABI do contrato
+      CONTRATO_INFO: /shared/contrato.json
+    volumes:
+      - chain-shared:/shared:ro          # lê o contrato.json publicado pelo nó
+    depends_on:
+      db:
+        condition: service_healthy       # espera o Postgres aceitar conexões
+      blockchain:
+        condition: service_started
+    restart: unless-stopped
+
+  # ---------------------------------------------------------- BANCO DE DADOS
+  # Imagem oficial do PostgreSQL. Guarda o que NÃO vai à blockchain:
+  # o mapa RA -> nome/e-mail (LGPD) e os códigos de avaliação gerados.
+  db:
+    image: postgres:16-alpine
+    container_name: certificado-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data              # persistência real
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro  # schema na 1ª subida
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  # -------------------------------------------------------------- BLOCKCHAIN
+  # Nó Hardhat local (a "rede Ethereum" do ambiente). No start, sobe o nó,
+  # faz o deploy do CertificadoCurso e publica endereço + ABI no volume
+  # compartilhado para o backend consumir.
+  blockchain:
+    build:
+      context: .                          # precisa de contracts/ e hardhat.config.js
+      dockerfile: blockchain/Dockerfile
+    container_name: certificado-blockchain
+    volumes:
+      - chain-shared:/shared
+    restart: unless-stopped
+
+volumes:
+  pgdata:        # dados do PostgreSQL sobrevivem a `docker compose down`
+  chain-shared:  # canal blockchain -> backend (endereço/ABI do contrato)

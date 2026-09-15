@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CertificadoCurso · Trabalho de Contêineres</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap masthead-in">
+    <div>
+      <p class="masthead-kicker">Trabalho prático de Contêineres — FEMA</p>
+      <h1>CertificadoCurso <span class="v">em quatro contêineres</span></h1>
+      <p class="lede">Certificação de cursos de extensão via smart contract, agora empacotada
+        com Docker: página, API, banco de dados e nó blockchain, cada um isolado no seu
+        contêiner e orquestrados pelo Compose.</p>
+    </div>
+    <nav class="masthead-nav">
+      <a href="#arquitetura">Arquitetura</a>
+      <a href="#conceitos">Conceitos Docker</a>
+      <a href="#painel">Painel do curso</a>
+      <a href="#verificar">Verificar certificado</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============================================================ DIAGRAMA -->
+  <section id="arquitetura" aria-labelledby="t-arq">
+    <h2 id="t-arq">Arquitetura</h2>
+    <p class="prose">Uma requisição do navegador entra pela única porta exposta ao host
+      (<code>8080</code>) e atravessa a rede virtual que o Compose cria. Dentro dela, os
+      contêineres se encontram pelo <em>nome do serviço</em> — o nginx fala com
+      <code>backend</code>, e a API fala com <code>db</code> e <code>blockchain</code> —
+      sem nenhum IP fixo configurado.</p>
+
+    <div class="diagram" role="img" aria-label="Diagrama: navegador acessa o frontend na porta 8080; o frontend repassa /api ao backend; o backend conversa com o banco PostgreSQL e com o nó Hardhat; volumes pgdata e chain-shared persistem dados.">
+      <div class="lane lane-host">
+        <span class="lane-tag">host&nbsp;·&nbsp;localhost:8080</span>
+        <div class="node node-browser">🖥️ navegador</div>
+      </div>
+      <div class="net">
+        <span class="net-tag">rede do Compose&nbsp;·&nbsp;<code>certificado_default</code></span>
+        <div class="containers">
+          <div class="node c" data-svc="frontend">
+            <span class="c-name">frontend</span>
+            <span class="c-img">nginx:1.27-alpine</span>
+            <span class="c-role">página + proxy <code>/api</code></span>
+          </div>
+          <div class="node c" data-svc="backend">
+            <span class="c-name">backend</span>
+            <span class="c-img">node:20-alpine</span>
+            <span class="c-role">API Express · relayer</span>
+          </div>
+          <div class="node c" data-svc="db">
+            <span class="c-name">db</span>
+            <span class="c-img">postgres:16-alpine</span>
+            <span class="c-role">dados pessoais (LGPD)</span>
+            <span class="vol">⛁ volume <code>pgdata</code></span>
+          </div>
+          <div class="node c" data-svc="blockchain">
+            <span class="c-name">blockchain</span>
+            <span class="c-img">node:20-bookworm</span>
+            <span class="c-role">nó Hardhat + contrato</span>
+            <span class="vol">⛁ volume <code>chain-shared</code></span>
+          </div>
+        </div>
+        <p class="net-flow"><code>navegador → frontend:80 → backend:3000 → { db:5432 · blockchain:8545 }</code></p>
+      </div>
+    </div>
+
+    <p class="prose">A separação também é conceitual: o PostgreSQL guarda o que <strong>não
+      pode</strong> ir a uma rede pública (mapa RA → nome, códigos gerados), enquanto o
+      contrato recebe apenas IDs anônimos <code>keccak256(sal + RA)</code> e as regras de
+      emissão — a mesma decisão LGPD do protótipo original, agora com fronteiras físicas
+      entre os serviços.</p>
+  </section>
+
+  <!-- ============================================================ CONCEITOS -->
+  <section id="conceitos" aria-labelledby="t-con">
+    <h2 id="t-con">Conceitos Docker aplicados</h2>
+
+    <dl class="concepts">
+      <div class="concept">
+        <dt>Dockerfile</dt>
+        <dd>São três: <code>frontend/Dockerfile</code> (nginx recebe a página e o proxy),
+          <code>backend/Dockerfile</code> (instala dependências antes de copiar o código,
+          aproveitando o cache de camadas, e roda como usuário <code>node</code> sem
+          privilégios) e <code>blockchain/Dockerfile</code> (compila o contrato Solidity
+          já no build da imagem, deixando o start do contêiner rápido).</dd>
+      </div>
+      <div class="concept">
+        <dt>Compose</dt>
+        <dd>O <code>docker-compose.yml</code> é o arquivo central: declara os quatro
+          serviços, a ordem de subida (<code>depends_on</code> com
+          <code>service_healthy</code> para o banco), as portas, os volumes e as
+          variáveis. Um comando — <code>docker compose up</code> — levanta a
+          aplicação inteira.</dd>
+      </div>
+      <div class="concept">
+        <dt>Redes de contêineres</dt>
+        <dd>O Compose cria uma rede virtual com DNS interno. A API se conecta ao banco
+          pela URL <code>postgres://…@db:5432/…</code> e ao nó pela URL
+          <code>http://blockchain:8545</code> — <em>nomes de serviço</em>, não IPs.
+          Só o frontend publica porta no host; banco e blockchain ficam inacessíveis
+          de fora.</dd>
+      </div>
+      <div class="concept">
+        <dt>Volumes</dt>
+        <dd>Dois papéis diferentes: <code>pgdata</code> persiste o banco — derrubar e
+          recriar o contêiner não apaga as inscrições; e <code>chain-shared</code> é um
+          volume de <em>comunicação</em>: o nó publica ali o endereço e a ABI do contrato
+          recém-implantado, e o backend lê ao subir, sem endereço hardcoded.</dd>
+      </div>
+      <div class="concept">
+        <dt>Variáveis de ambiente</dt>
+        <dd>Credenciais do Postgres, chave privada do relayer e o sal dos IDs anônimos
+          vivem no <code>.env</code> (fora do versionamento) e chegam aos contêineres
+          via Compose. O código lê <code>process.env</code> — nada sensível gravado
+          em imagem ou repositório.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- =============================================================== PAINEL -->
+  <section id="painel" aria-labelledby="t-pan">
+    <h2 id="t-pan">Painel do curso</h2>
+    <p class="prose">O fluxo completo do contrato, operado pela página. Cada ação abaixo
+      atravessa os quatro contêineres: a página envia à API, a API grava o off-chain no
+      Postgres e assina a transação no nó Hardhat.</p>
+
+    <div id="status" class="status" hidden></div>
+
+    <ol class="flow">
+
+      <li class="step">
+        <h3>Criar o curso</h3>
+        <form id="f-curso" class="grid">
+          <label>Nome <input name="nome" required placeholder="Introdução a Blockchain"></label>
+          <label>Carga horária (h) <input name="cargaHoraria" type="number" value="20" min="1" required></label>
+          <label>Nº de aulas <input name="totalAulas" type="number" value="4" min="1" required></label>
+          <label>Presença mínima (%) <input name="presencaMinimaPct" type="number" value="75" min="0" max="100" required></label>
+          <button type="submit">Criar curso</button>
+        </form>
+        <div class="picker">
+          <label>Curso ativo no painel
+            <select id="sel-curso"><option value="">— crie ou selecione —</option></select>
+          </label>
+          <button type="button" id="btn-recarregar" class="ghost">Recarregar</button>
+        </div>
+        <div id="curso-info" class="kv" hidden></div>
+      </li>
+
+      <li class="step">
+        <h3>Inscrever alunos</h3>
+        <p class="hint">Cole as linhas do CSV exportado do Google Forms — uma por aluno,
+          no formato <code>nome, e-mail, RA</code>. Os nomes ficam no banco; só o hash
+          vai ao contrato.</p>
+        <form id="f-alunos">
+          <textarea name="csv" rows="4" placeholder="Maria da Silva, maria@fema.edu.br, 2311600101&#10;João Souza, joao@fema.edu.br, 2311600102"></textarea>
+          <button type="submit">Inscrever no contrato</button>
+        </form>
+        <div id="tab-alunos"></div>
+      </li>
+
+      <li class="step">
+        <h3>Registrar presença <span class="oracle">professor como oráculo</span></h3>
+        <form id="f-presenca" class="grid">
+          <label>Aula nº <input name="aula" type="number" value="1" min="1" required></label>
+          <label class="span2">RAs presentes (separados por vírgula)
+            <input name="ras" placeholder="2311600101, 2311600102" required></label>
+          <button type="submit">Validar presenças</button>
+        </form>
+      </li>
+
+      <li class="step">
+        <h3>Encerrar o curso — emissão automática</h3>
+        <p class="hint">O contrato percorre os inscritos e emite sozinho os certificados
+          de quem atingiu a frequência mínima. O professor não escolhe caso a caso.</p>
+        <button id="btn-encerrar" type="button">Encerrar e auto-emitir</button>
+        <div id="tab-certs"></div>
+      </li>
+
+      <li class="step">
+        <h3>Avaliação anônima</h3>
+        <p class="hint">Gere um código secreto por certificado, distribua-os impressos e
+          embaralhados; a "urna" abaixo registra a nota on-chain sem vínculo com o aluno.</p>
+        <div class="split">
+          <form id="f-codigos">
+            <button type="submit" class="ghost">Gerar códigos (1 por certificado)</button>
+            <pre id="out-codigos" hidden></pre>
+          </form>
+          <form id="f-avaliar" class="grid">
+            <label>Nota (1–5) <input name="nota" type="number" min="1" max="5" value="5" required></label>
+            <label>Código secreto <input name="codigo" placeholder="AVAL-a1b2c3d4" required></label>
+            <label class="span2">Comentário (opcional, sem dados pessoais)
+              <input name="comentario" maxlength="140"></label>
+            <button type="submit">Depositar avaliação</button>
+          </form>
+        </div>
+        <p id="out-media" class="media" hidden></p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ============================================================ VERIFICAR -->
+  <section id="verificar" aria-labelledby="t-ver">
+    <h2 id="t-ver">Verificar um certificado</h2>
+    <p class="prose">Qualquer pessoa com o número impresso no documento confere a validade
+      direto no contrato — leitura pública, sem custo e sem cadastro.</p>
+    <form id="f-verificar" class="verify">
+      <label>Nº do certificado <input name="certId" type="number" min="1" required></label>
+      <button type="submit">Verificar</button>
+    </form>
+    <div id="out-verificar" class="kv" hidden></div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p id="foot-info">conectando aos contêineres…</p>
+    <p>CertificadoCurso v2 · protótipo do TCC "Blockchain e Smart Contracts: barreiras à sua
+      adoção" · Arthur Naoto Miura — FEMA/IMESA · agora conteinerizado com Docker Compose.</p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

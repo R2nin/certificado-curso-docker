@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CertificadoCurso v2 — Dockerização da Plataforma</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/night.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/monokai.css" />
+
+  <style>
+    /* ── global tweaks ── */
+    .reveal h1  { font-size: 2.4em; letter-spacing: -1px; }
+    .reveal h2  { font-size: 1.6em; color: #90caf9; border-bottom: 2px solid #42a5f5; padding-bottom: .3em; margin-bottom: .6em; }
+    .reveal h3  { font-size: 1.2em; color: #b0bec5; }
+    .reveal p, .reveal li { font-size: .88em; line-height: 1.6; }
+    .reveal small { font-size: .65em; color: #90a4ae; }
+    .reveal hr  { border: none; border-top: 1px solid #42a5f5; margin: .6em 0; }
+
+    /* table */
+    .reveal table { font-size: .75em; width: 100%; border-collapse: collapse; margin-top: .5em; }
+    .reveal table th { background: #1565c0; color: #fff; padding: 8px 12px; text-align: left; }
+    .reveal table td { padding: 7px 12px; border-bottom: 1px solid #37474f; }
+    .reveal table tr:nth-child(even) td { background: rgba(255,255,255,.05); }
+    .reveal table code { font-size: .9em; color: #80cbc4; }
+
+    /* code blocks */
+    .reveal pre { width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,.5); border-radius: 6px; }
+    .reveal pre code { font-size: .78em; line-height: 1.55; }
+
+    /* diagram box */
+    .diagram {
+      font-family: 'Courier New', monospace;
+      font-size: .72em;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1em 1.5em;
+      text-align: left;
+      display: inline-block;
+      white-space: pre;
+      line-height: 1.7;
+      color: #c9d1d9;
+    }
+
+    /* LGPD cards */
+    .card-chain {
+      background: linear-gradient(135deg, #0d47a1, #1565c0);
+      border-radius: 10px;
+      padding: .8em 1.2em;
+      margin: .4em 0;
+      text-align: left;
+      font-size: .85em;
+    }
+    .card-db {
+      background: linear-gradient(135deg, #1b5e20, #2e7d32);
+      border-radius: 10px;
+      padding: .8em 1.2em;
+      margin: .4em 0;
+      text-align: left;
+      font-size: .85em;
+    }
+    .card-chain .label, .card-db .label {
+      font-weight: bold;
+      font-size: 1em;
+      display: block;
+      margin-bottom: .25em;
+    }
+    .card-chain code { background: rgba(255,255,255,.15); border-radius: 4px; padding: 0 4px; }
+    .card-db   code { background: rgba(255,255,255,.15); border-radius: 4px; padding: 0 4px; }
+
+    /* conclusion big text */
+    .cmd-big {
+      font-family: 'Courier New', monospace;
+      font-size: 1.6em;
+      color: #80cbc4;
+      background: rgba(0,0,0,.4);
+      padding: .3em .7em;
+      border-radius: 8px;
+      display: inline-block;
+      margin: .4em 0;
+    }
+
+    /* volume cards */
+    .vol-card {
+      background: rgba(255,255,255,.06);
+      border-left: 4px solid #42a5f5;
+      border-radius: 6px;
+      padding: .7em 1.1em;
+      margin: .5em 0;
+      text-align: left;
+      font-size: .85em;
+    }
+    .vol-card code { color: #80cbc4; }
+    .vol-card strong { color: #90caf9; }
+  </style>
+</head>
+<body>
+
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ─────────────────────────────────────────── Slide 1 — Capa -->
+    <section>
+      <h1>CertificadoCurso v2</h1>
+      <h3>Dockerização da Plataforma</h3>
+      <hr>
+      <p>Sistemas Operacionais II — Prof. Douglas</p>
+      <p><small>Arthur Naoto Miura — FEMA/IMESA 2026</small></p>
+    </section>
+
+    <!-- ─────────────────────────────────────────── Slide 2 — O Projeto -->
+    <section>
+      <h2>O Projeto</h2>
+      <ul>
+        <li class="fragment">TCC: <em>"Blockchain e Smart Contracts: barreiras à sua adoção"</em></li>
+        <li class="fragment">Plataforma de certificados de cursos de extensão</li>
+        <li class="fragment">Objetivo: containerizar com Docker + Compose</li>
+        <li class="fragment">Antes: tudo local, sem isolamento entre componentes</li>
+        <li class="fragment">Depois: <strong>4 serviços independentes</strong>, 1 <code>docker-compose.yml</code></li>
+      </ul>
+    </section>
+
+    <!-- ─────────────────────────────────────────── Slide 3 — Arquitetura -->
+    <section>
+      <h2>Arquitetura</h2>
+      <table>
+        <thead>
+          <tr><th>Serviço</th><th>Imagem base</th><th>Papel</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>frontend</code></td>
+            <td><code>nginx:1.27-alpine</code></td>
+            <td>Página estática + proxy <code>/api</code> → backend (sem CORS)</td>
+          </tr>
+          <tr>
+            <td><code>backend</code></td>
+            <td><code>node:20-alpine</code></td>
+            <td>API Express — relayer: Postgres + blockchain</td>
+          </tr>
+          <tr>
+            <td><code>db</code></td>
+            <td><code>postgres:16-alpine</code></td>
+            <td>Dados off-chain sensíveis (LGPD)</td>
+          </tr>
+          <tr>
+            <td><code>blockchain</code></td>
+            <td><code>node:20-bookworm-slim</code></td>
+            <td>Nó Hardhat — deploy do contrato no start</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="margin-top:.8em; font-size:.8em; color:#90a4ae;">
+        Única porta no host: <strong style="color:#80cbc4;">:8080</strong>
+      </p>
+    </section>
+
+    <!-- ─────────────────────────────────────────── Slide 4 — Rede Virtual -->
+    <section>
+      <h2>Rede Virtual do Compose</h2>
+      <div class="diagram">navegador
+    │ :8080
+    ▼
+frontend (nginx)
+    │ /api (proxy)
+    ▼
+backend (Express)
+    ├──▶ db:5432         (PostgreSQL)
+    └──▶ blockchain:8545  (Hardhat)</div>
+      <p style="margin-top:.8em; font-size:.8em;">
+        DNS interno — serviços se comunicam <strong>pelo nome</strong>
+      </p>
+    </section>
+
+    <!-- ─────────────────────────────────────────── Slide 5 — Volumes -->
+    <section>
+      <h2>Volumes</h2>
+      <div class="vol-card">
+        <strong>pgdata</strong><br/>
+        Banco persiste mesmo após <code>docker compose down</code> —
+        dados não são perdidos entre reinicializações
+      </div>
+      <div class="vol-card">
+        <strong>chain-shared</strong><br/>
+        Nó Hardhat publica <code>contrato.json</code> (endereço + ABI) no volume;
+        backend lê o arquivo ao subir, sem hardcode de endereço
+      </div>
+    </section>
+
+    <!-- ─────────────────────────────────────────── Slide 6 — Outros Conceitos -->
+    <section>
+      <h2>Outros Conceitos</h2>
+      <ul>
+        <li>
+          <strong>Dockerfiles ×3</strong> com cache de camadas —
+          <code>COPY package*.json</code> antes do código;
+          imagens <code>alpine</code>/<code>slim</code>;
+          <code>USER node</code> no backend
+        </li>
+        <li>
+          <strong>depends_on + healthcheck</strong> —
+          backend aguarda <code>pg_isready</code> do Postgres
+          (<code>condition: service_healthy</code>)
+        </li>
+        <li>
+          <strong>.env fora do versionamento</strong> —
+          credenciais nunca entram no repositório;
+          código lê apenas <code>process.env</code>
+        </li>
+        <li>
+          <strong>Imagens alpine/slim</strong> —
+          menor superfície de ataque, pulls mais rápidos
+        </li>
+      </ul>
+    </section>
+
+    <!-- ─────────────────────────────────────────── Slide 7 — LGPD -->
+    <section>
+      <h2>Decisão de Design — LGPD</h2>
+      <div class="card-chain">
+        <span class="label">🔗 Blockchain recebe</span>
+        <code>keccak256(sal + ":" + RA)</code> — identificador anônimo, imutável, público
+      </div>
+      <div class="card-db">
+        <span class="label">🗄️ Postgres guarda</span>
+        nome, e-mail, RA — dados pessoais, podem ser deletados, fora da chain
+      </div>
+      <p style="margin-top:.8em; font-size:.8em; color:#b0bec5;">
+        Fronteira <strong>física</strong> entre contêineres —
+        o backend é o único serviço que fala com ambos
+      </p>
+    </section>
+
+    <!-- ─────────────────────────────────────────── Slide 8 — Demo -->
+    <section>
+      <h2>Demo — localhost:8080</h2>
+      <ol>
+        <li class="fragment">Criar um curso: nome, carga horária, nº de aulas, presença mínima</li>
+        <li class="fragment">Inscrever alunos (nome, e-mail, RA) — nomes → Postgres; hashes → contrato</li>
+        <li class="fragment">Registrar presença aula a aula (professor como oráculo)</li>
+        <li class="fragment">Encerrar — contrato auto-emite certificados para quem atingiu frequência mínima</li>
+        <li class="fragment">Avaliação anônima — códigos embaralhados, notas pela "urna", média pública on-chain</li>
+        <li class="fragment">Verificar certificado — leitura pública, sem custo, pelo número impresso</li>
+      </ol>
+    </section>
+
+    <!-- ─────────────────────────────────────────── Slide 9 — Comandos -->
+    <section>
+      <h2>Referência Rápida</h2>
+      <pre><code class="language-bash">docker compose up --build   # 1ª subida: build + start
+docker compose up -d        # em segundo plano
+docker compose ps           # status dos contêineres
+docker compose logs -f backend
+docker compose down         # para tudo (banco persiste)
+docker compose down -v      # reset total (apaga banco e chain)</code></pre>
+    </section>
+
+    <!-- ─────────────────────────────────────────── Slide 10 — Conclusão -->
+    <section>
+      <h2>Resultado</h2>
+      <ul style="list-style: none; padding-left: 0;">
+        <li>✓ Um único comando sobe toda a plataforma</li>
+        <li>✓ Sem instalar Node, PostgreSQL ou Hardhat no host</li>
+        <li>✓ Isolamento real: cada serviço com sua responsabilidade</li>
+        <li>✓ Cache de camadas: rebuilds rápidos nas subidas seguintes</li>
+        <li>✓ Pronto para demo: <code>http://localhost:8080</code></li>
+      </ul>
+      <p style="margin-top:1em;">
+        <span class="cmd-big">docker compose up</span>
+      </p>
+      <p><small>Um comando. Quatro serviços. Tudo isolado.</small></p>
+    </section>
+
+  </div><!-- /slides -->
+</div><!-- /reveal -->
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/highlight.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    plugins: [ RevealHighlight ]
+  });
+</script>
+</body>
+</html>

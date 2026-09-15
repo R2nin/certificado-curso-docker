@@ -1,0 +1,3 @@
+# entrypoint do contêiner precisa de LF (CRLF quebra o /bin/sh)
+*.sh text eol=lf
+*.sql text eol=lf
