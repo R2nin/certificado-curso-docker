@@ -43,6 +43,8 @@ services:
       SAL_ALUNOS: ${SAL_ALUNOS}
       # Onde o serviço blockchain publica endereço + ABI do contrato
       CONTRATO_INFO: /shared/contrato.json
+      # URL base pública da aplicação (aparece no link do PDF para verificação)
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
     volumes:
       - chain-shared:/shared:ro          # lê o contrato.json publicado pelo nó
     depends_on:

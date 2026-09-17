@@ -87,10 +87,12 @@ async function listarAlunos() {
 async function listarCertificados() {
   const certs = cursoAtivo ? await api(`/cursos/${cursoAtivo}/certificados`) : [];
   $("#tab-certs").innerHTML = !certs.length ? "" : `
-    <table><thead><tr><th>Nº</th><th>Aluno</th><th>Presenças</th><th>Emitido em</th></tr></thead>
+    <table><thead><tr><th>Nº</th><th>Aluno</th><th>Presenças</th><th>Emitido em</th><th>PDF</th></tr></thead>
     <tbody>${certs.map((c) => `
       <tr><td>${c.certId}</td><td>${c.nome} (${c.ra})</td><td>${c.aulasPresentes}</td>
-      <td>${new Date(c.dataEmissao).toLocaleDateString("pt-BR")}</td></tr>`).join("")}
+      <td>${new Date(c.dataEmissao).toLocaleDateString("pt-BR")}</td>
+      <td><a href="/api/certificados/${c.certId}/pdf" target="_blank" class="btn-pdf-sm">PDF</a></td>
+      </tr>`).join("")}
     </tbody></table>`;
 }
 
@@ -98,7 +100,10 @@ async function listarCertificados() {
 acao($("#f-curso"), "submit", async (e) => {
   const d = form(e.target);
   const r = await api("/cursos", { method: "POST", body: {
-    nome: d.nome, cargaHoraria: +d.cargaHoraria, totalAulas: +d.totalAulas, presencaMinimaPct: +d.presencaMinimaPct,
+    nome: d.nome, cargaHoraria: +d.cargaHoraria, totalAulas: +d.totalAulas,
+    presencaMinimaPct: +d.presencaMinimaPct,
+    dataRealizacao: d.dataRealizacao || null,
+    instrutor: d.instrutor || null,
   }});
   aviso("ok", `Curso nº ${r.cursoId} criado on-chain (tx ${r.txHash.slice(0, 14)}…)`);
   e.target.reset();
@@ -173,6 +178,11 @@ acao($("#f-verificar"), "submit", async (e) => {
     <b>Frequência</b><span>${c.aulasPresentes} de ${c.totalAulas} aulas</span>
     <b>Emitido em</b><span>${new Date(c.dataEmissao).toLocaleDateString("pt-BR")}</span>
     <b>ID anônimo do aluno</b><span class="hash">${c.alunoId}</span>`;
+  // Botão para baixar o PDF
+  const pdfDiv  = $("#out-pdf");
+  const pdfLink = $("#link-pdf");
+  pdfDiv.hidden = false;
+  pdfLink.href  = `/api/certificados/${certId}/pdf`;
 });
 
 // ----------------------------------------------------------------- startup
@@ -183,5 +193,17 @@ acao($("#f-verificar"), "submit", async (e) => {
     await carregarCursos();
   } catch (e) {
     $("#foot-info").textContent = "API ainda subindo — recarregue em alguns segundos.";
+  }
+
+  // Roteamento por hash: #verificar/42 auto-preenche e verifica o certificado
+  const hashMatch = window.location.hash.match(/^#verificar\/(\d+)$/);
+  if (hashMatch) {
+    const certId = hashMatch[1];
+    const input = document.querySelector("#f-verificar [name=certId]");
+    if (input) {
+      input.value = certId;
+      document.getElementById("verificar").scrollIntoView({ behavior: "smooth" });
+      document.getElementById("f-verificar").requestSubmit();
+    }
   }
 })();

@@ -141,10 +141,12 @@
       <li class="step">
         <h3>Criar o curso</h3>
         <form id="f-curso" class="grid">
-          <label>Nome <input name="nome" required placeholder="Introdução a Blockchain"></label>
-          <label>Carga horária (h) <input name="cargaHoraria" type="number" value="20" min="1" required></label>
-          <label>Nº de aulas <input name="totalAulas" type="number" value="4" min="1" required></label>
-          <label>Presença mínima (%) <input name="presencaMinimaPct" type="number" value="75" min="0" max="100" required></label>
+          <label>Nome <input name="nome" required placeholder="IA no Dia a Dia"></label>
+          <label>Carga horária (h) <input name="cargaHoraria" type="number" value="2" min="1" required></label>
+          <label>Nº de aulas <input name="totalAulas" type="number" value="1" min="1" required></label>
+          <label>Presença mínima (%) <input name="presencaMinimaPct" type="number" value="100" min="0" max="100" required></label>
+          <label>Data de realização <input name="dataRealizacao" type="date" required></label>
+          <label class="span2">Instrutor / Responsável <input name="instrutor" value="Alex Sandro Romeo de Souza Poletto" required></label>
           <button type="submit">Criar curso</button>
         </form>
         <div class="picker">
@@ -218,6 +220,9 @@
       <button type="submit">Verificar</button>
     </form>
     <div id="out-verificar" class="kv" hidden></div>
+    <div id="out-pdf" hidden style="margin-top:1rem">
+      <a id="link-pdf" href="#" target="_blank" class="btn-pdf">⬇ Baixar certificado em PDF</a>
+    </div>
   </section>
 
 </main>
