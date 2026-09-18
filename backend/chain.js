@@ -28,9 +28,9 @@ async function conectar(tentativas = 90) {
         info = JSON.parse(fs.readFileSync(CONTRATO_INFO, "utf8"));
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         await provider.getBlockNumber();
-        // NonceManager: serializa os nonces das transações do relayer,
-        // evitando colisão quando várias ações chegam em sequência.
-        const wallet = new ethers.NonceManager(new ethers.Wallet(process.env.PRIVATE_KEY, provider));
+        // Wallet sem NonceManager: busca o nonce direto da rede antes de
+        // cada transação, evitando estado corrompido após erros de contrato.
+        const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
         contrato = new ethers.Contract(info.endereco, info.abi, wallet);
         console.log(`[backend] conectado ao contrato ${info.endereco} via ${RPC_URL}`);
         return;
