@@ -62,6 +62,8 @@ async function mostrarCurso() {
   info.hidden = false;
   info.innerHTML = `
     <b>Curso</b><span>${c.nome}</span>
+    <b>Data de realização</b><span>${c.dataRealizacao || "—"}</span>
+    <b>Responsável</b><span>${c.instrutor || "—"}</span>
     <b>Carga / aulas</b><span>${c.cargaHoraria} h · ${c.totalAulas} aulas · mínimo ${c.presencaMinimaPct}%</span>
     <b>Situação</b><span>${c.encerrado ? "encerrado (certificados emitidos)" : c.ativo ? "ativo" : "inativo"}</span>
     <b>Inscritos</b><span>${c.totalInscritos}</span>
