@@ -382,12 +382,12 @@ app.get("/api/certificados/:certId/pdf", wrap(async (req, res) => {
 
   // ── 5. Textos do certificado ───────────────────────────────────────────────
   // "CURRICULARIZAÇÃO DA EXTENSÃO" — PPTX 19.5pt × SY = 14.33pt
-  doc.font("Helvetica-Bold").fontSize(14.33).fillColor(C2)
+  doc.font("Helvetica-Bold").fontSize(14.33).fillColor(ORANGE)
      .text("CURRICULARIZAÇÃO DA EXTENSÃO", 248.61, 136.87,
            { width: 344.66, align: "center", characterSpacing: 1.5 });
 
   // "CERTIFICADO" — PPTX 78pt × SY = 57.32pt
-  doc.font("Helvetica-Bold").fontSize(57.32).fillColor(C1)
+  doc.font("Helvetica-Bold").fontSize(57.32).fillColor(BLUE)
      .text("CERTIFICADO", 213.69, 160.9, { width: 414.5, align: "center" });
 
   // Barras laranja + nome do curso — PPTX 36pt × SY = 26.46pt
@@ -402,7 +402,7 @@ app.get("/api/certificados/:certId/pdf", wrap(async (req, res) => {
            240.18, 286.13, { width: 361.53, align: "center" });
 
   // Nome do aluno — PPTX 43.5pt × SY = 31.97pt
-  doc.font("Helvetica-Bold").fontSize(31.97).fillColor(C1)
+  doc.font("Helvetica-Bold").fontSize(31.97).fillColor(BLUE)
      .text(nomeAluno, 249.74, 325.26, { width: 342.41, align: "center" });
 
   // Corpo do texto (2 linhas) — PPTX 22.5pt × SY = 16.54pt
