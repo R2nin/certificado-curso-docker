@@ -309,7 +309,7 @@ app.get("/api/certificados/:certId/pdf", wrap(async (req, res) => {
 
   // Nome do aluno (off-chain, LGPD)
   const { rows: alunoRows } = await pool.query(
-    "SELECT nome FROM alunos WHERE aluno_id = $1 LIMIT 1", [cert.alunoId]
+    "SELECT nome FROM alunos WHERE aluno_id = $1 AND curso_id = $2 LIMIT 1", [cert.alunoId, cursoId]
   );
   const nomeAluno = alunoRows[0]?.nome || "Participante";
 
@@ -401,9 +401,15 @@ app.get("/api/certificados/:certId/pdf", wrap(async (req, res) => {
      .text("A Fundação Educacional do Município de Assis certifica que",
            240.18, 286.13, { width: 361.53, align: "center" });
 
-  // Nome do aluno — PPTX 43.5pt × SY = 31.97pt
-  doc.font("Helvetica-Bold").fontSize(31.97).fillColor(BLUE)
-     .text(nomeAluno, 249.74, 325.26, { width: 342.41, align: "center" });
+  // Nome do aluno — escala a fonte para caber numa linha (PPTX 43.5pt × SY = 31.97pt)
+  const nomeMaxW = 342.41;
+  let nomeFontSize = 31.97;
+  doc.font("Helvetica-Bold");
+  while (nomeFontSize > 14 && doc.fontSize(nomeFontSize).widthOfString(nomeAluno) > nomeMaxW) {
+    nomeFontSize -= 0.5;
+  }
+  doc.font("Helvetica-Bold").fontSize(nomeFontSize).fillColor(BLUE)
+     .text(nomeAluno, 249.74, 325.26, { width: nomeMaxW, align: "center", lineBreak: false });
 
   // Corpo do texto (2 linhas) — PPTX 22.5pt × SY = 16.54pt
   // Linha 1: alinhamento uniforme
